@@ -18,6 +18,18 @@
                 <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
                     wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
             </flux:navlist.group>
+
+            {{-- divider --}}
+            <flux:navlist.group :heading="__('Manajemen')" class="grid">
+                <flux:navlist.item icon="users" :href="route('client.index')" :current="request()->routeIs('client.*')"
+                    wire:navigate>{{ __('Klien') }}</flux:navlist.item>
+                {{-- <flux:navlist.item icon="document-text"
+                    :href="route('invoice.index')" :current="request()->routeIs('invoice.*')"
+                    wire:navigate>{{ __('Invoice') }}</flux:navlist.item>
+                <flux:navlist.item icon="receipt-percent"
+                    :href="route('payment.index')" :current="request()->routeIs('payment.*')"
+                    wire:navigate>{{ __('Pembayaran') }}</flux:navlist.item> --}}
+            </flux:navlist.group>
         </flux:navlist>
 
         <flux:spacer />
