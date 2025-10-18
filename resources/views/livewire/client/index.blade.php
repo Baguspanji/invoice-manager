@@ -176,13 +176,13 @@ new class extends Component {
                 @forelse ($requests as $request)
                     <tr class="bg-white border-b hover:bg-gray-50">
                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap hover:font-semibold cursor-pointer"
-                            wire:click="edit({{ (int) $request->id }})">{{ $request->name }}</td>
+                            wire:click="edit({{ $request->id }})">{{ $request->name }}</td>
                         <td class="px-6 py-4">{{ $request->email }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->phone ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->address ?? '-' }}</td>
                         <td class="px-6 py-4">{{ $request->npwp ?? '-' }}</td>
                         <td class="px-6 py-4 space-x-2">
-                            <button wire:click="edit({{ (int) $request->id }})"
+                            <button wire:click="edit({{ $request->id }})"
                                 class="text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-100 cursor-pointer">
                                 <flux:icon name="pencil-square" class="w-4 h-4 inline-block -mt-1" />
                                 Edit

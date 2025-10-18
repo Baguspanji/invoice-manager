@@ -20,6 +20,14 @@ Route::middleware(['auth'])->group(function () {
 
     // Client Management
     Volt::route('client', 'client.index')->name('client.index');
+
+    // Invoice Management
+    Volt::route('invoice', 'invoice.index')->name('invoice.index');
+    Volt::route('invoice/create', 'invoice.create')->name('invoice.create');
+
+    // Invoice PDF
+    Route::get('invoice/{invoice}/pdf', [App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoice.pdf');
+    Route::get('invoice/{invoice}/download', [App\Http\Controllers\InvoiceController::class, 'downloadPdf'])->name('invoice.download');
 });
 
 require __DIR__.'/auth.php';
