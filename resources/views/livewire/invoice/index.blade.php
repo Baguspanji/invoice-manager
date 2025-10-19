@@ -111,8 +111,16 @@ new class extends Component {
                         <td class="px-6 py-4">{{ $request->client?->name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->issue_date?->format('Y-m-d') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $request->status->color() }}-400" >
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @php
+                                match ($request->status) {
+                                    \App\Enums\InvoiceStatus::SENT => ($statusClass = 'bg-blue-400'),
+                                    \App\Enums\InvoiceStatus::PAID => ($statusClass = 'bg-green-400'),
+                                    \App\Enums\InvoiceStatus::OVERDUE => ($statusClass = 'bg-red-400'),
+                                    default => ($statusClass = 'bg-gray-400'),
+                                };
+                            @endphp
+                            <span class="px-2 py-1 rounded text-white text-xs font-mono {{ $statusClass }}">
                                 {{ $request->status->label() ?? '-' }}
                             </span>
                         </td>
@@ -161,7 +169,8 @@ new class extends Component {
                     <div><strong>Tanggal Terbit:</strong> {{ $invoice->issue_date?->format('Y-m-d') ?? '-' }}</div>
                     <div><strong>Jatuh Tempo:</strong> {{ $invoice->due_date?->format('Y-m-d') ?? '-' }}</div>
                     <div><strong>Status:</strong>
-                        <span class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $invoice->status->color() }}-400" >
+                        <span
+                            class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $invoice->status->color() }}-400">
                             {{ $invoice->status->label() ?? '-' }}
                         </span>
                     </div>
@@ -204,23 +213,29 @@ new class extends Component {
     <!-- Print Preview Modal -->
     <flux:modal name="print-preview" class="md:w-2xl max-h-screen" :dismissible="true">
         <div class="space-y-4">
-            <div class="flex items-center justify-between">
+            <div>
                 <flux:heading size="lg">Preview Invoice</flux:heading>
-                <div class="space-x-2">
-                    <a href="{{ $invoice ? route('invoice.download', $invoice->id) : '#' }}" target="_blank" class="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700">
-                        <flux:icon name="arrow-down-tray" class="w-4 h-4 inline-block -mt-1 mr-1" />
-                        Download PDF
-                    </a>
-                    <button onclick="printIframe()" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                        <flux:icon name="printer" class="w-4 h-4 inline-block -mt-1 mr-1" />
-                        Print
-                    </button>
-                </div>
             </div>
 
             @if ($invoice)
                 <div class="h-[70vh]">
-                    <iframe id="pdf-iframe" src="{{ route('invoice.pdf', $invoice->id) }}" class="w-full h-full border rounded"></iframe>
+                    <iframe id="pdf-iframe" src="{{ route('invoice.pdf', $invoice->id) }}"
+                        class="w-full h-full border rounded"></iframe>
+                </div>
+
+                <div class="flex items-center justify-end">
+                    <div class="space-x-2">
+                        <a href="{{ $invoice ? route('invoice.download', $invoice->id) : '#' }}" target="_blank"
+                            class="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                            <flux:icon name="arrow-down-tray" class="w-4 h-4 inline-block -mt-1 mr-1" />
+                            Download PDF
+                        </a>
+                        <button onclick="printIframe()"
+                            class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                            <flux:icon name="printer" class="w-4 h-4 inline-block -mt-1 mr-1" />
+                            Print
+                        </button>
+                    </div>
                 </div>
             @else
                 <div class="text-gray-500">Memuat data...</div>

@@ -19,7 +19,11 @@
                     wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
             </flux:navlist.group>
 
-            {{-- divider --}}
+            <flux:navlist.group :heading="__('Project')" class="grid">
+                <flux:navlist.item icon="folder" :href="route('project.index')" :current="request()->routeIs('project.*')"
+                    wire:navigate>{{ __('Proyek') }}</flux:navlist.item>
+            </flux:navlist.group>
+
             <flux:navlist.group :heading="__('Manajemen')" class="grid">
                 <flux:navlist.item icon="users" :href="route('client.index')" :current="request()->routeIs('client.*')"
                     wire:navigate>{{ __('Klien') }}</flux:navlist.item>

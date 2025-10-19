@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Invoice extends Model
 {
     protected $fillable = [
+        'project_id',
         'client_id',
         'invoice_number',
         'issue_date',
@@ -47,10 +48,15 @@ class Invoice extends Model
         return $this->belongsTo(Client::class);
     }
 
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
+
     public function generateInvoiceNumber(): string
     {
         $latestInvoice = self::latest()->first();
-        $nextNumber = $latestInvoice ? ((int) substr($latestInvoice->invoice_number, -4)) + 1 : 1;
-        return 'INV-' . date('Ymd') . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        $nextNumber    = $latestInvoice ? ((int) substr($latestInvoice->invoice_number, -4)) + 1 : 1;
+        return 'OSI-' . date('Ymd') . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 }
