@@ -4,12 +4,18 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Rule;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Project;
 use Illuminate\Support\Facades\DB;
 
 new class extends Component {
+    // selected project
+    public ?Project $project = null;
+
     // columns for invoice creation
     #[Rule('required|string|unique:invoices,invoice_number')]
     public ?string $invoice_number = null;
+    #[Rule('nullable|integer|exists:projects,id')]
+    public ?int $project_id = null;
     #[Rule('required|integer|exists:clients,id')]
     public ?int $client_id = null;
     #[Rule('required|date')]
@@ -26,6 +32,8 @@ new class extends Component {
 
     public array $clients = [];
 
+    public array $projects = [];
+
     /**
      * Mount invoice number on component load
      */
@@ -38,6 +46,9 @@ new class extends Component {
         $this->clients = Client::select(['id', 'name'])
             ->get()
             ->toArray();
+        $this->projects = Project::select(['id', 'name'])
+            ->get()
+            ->toArray();
 
         // Initialize with one empty invoice item
         $this->invoiceItems[] = [
@@ -48,6 +59,23 @@ new class extends Component {
         ];
 
         $this->calculateTotal();
+    }
+
+    /**
+     * Update client_id when project_id changes
+     */
+    public function updatedProjectId(): void
+    {
+        if ($this->project_id) {
+            $project = Project::find($this->project_id);
+            if ($project) {
+                $this->project = $project;
+                $this->client_id = $project->client_id;
+            }
+        } else {
+            $this->project = null;
+            $this->client_id = null;
+        }
     }
 
     /**
@@ -109,6 +137,7 @@ new class extends Component {
         DB::transaction(function () {
             $invoice = Invoice::create([
                 'invoice_number' => $this->invoice_number,
+                'project_id' => $this->project_id,
                 'client_id' => $this->client_id,
                 'issue_date' => $this->issue_date,
                 'due_date' => $this->due_date,
@@ -164,12 +193,25 @@ new class extends Component {
             </div>
 
             <div>
-                <flux:select size="sm" label="Klien" wire:model.defer="client_id">
-                    @foreach ($clients as $client)
-                        <flux:select.option :value="$client['id']">{{ $client['name'] }}</flux:select.option>
+                <flux:select size="sm" label="Proyek" wire:model.live="project_id">
+                    <flux:select.option value="">Pilih Proyek</flux:select.option>
+                    @foreach ($projects as $item)
+                        <flux:select.option :value="$item['id']">{{ $item['name'] }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
+
+            <div>
+                <flux:select size="sm" label="Klien" wire:model.defer="client_id"
+                    :disabled="$project_id !== null">
+                    <flux:select.option value="">Pilih Klien</flux:select.option>
+                    @foreach ($clients as $item)
+                        <flux:select.option :value="$item['id']">{{ $item['name'] }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div></div>
 
             <div>
                 <flux:input size="sm" label="Tanggal Terbit" type="date" wire:model.defer="issue_date" />
@@ -180,12 +222,38 @@ new class extends Component {
             </div>
 
             <div>
-                <flux:input size="sm" label="Total" type="number" step="0.01" wire:model.defer="total" readonly />
+                <flux:input size="sm" label="Total" type="number" step="0.01" wire:model.defer="total"
+                    readonly />
             </div>
 
             <div class="md:col-span-2">
                 <flux:textarea size="sm" label="Catatan" wire:model.defer="notes" rows="2" />
             </div>
+
+            <!-- Project Overview -->
+            @if ($project)
+                <div class="md:col-span-2 bg-gray-50 p-4 rounded-md my-4">
+                    <h3 class="font-semibold text-gray-700 mb-3">Detail Proyek</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Nomor Proyek</p>
+                            <p class="font-medium">{{ $project->project_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Nama Proyek</p>
+                            <p class="font-medium">{{ $project->name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Total Nilai</p>
+                            <p class="font-medium">Rp {{ number_format($project->total_value, 2) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Total Tagihan</p>
+                            <p class="font-medium">Rp {{ number_format($project->billed_value, 2) }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             <div class="md:col-span-2 pt-4">
                 <div class="flex justify-between">

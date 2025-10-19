@@ -168,8 +168,9 @@ new class extends Component {
 
             <div>
                 <flux:select size="sm" label="Klien" wire:model.defer="client_id">
-                    @foreach ($clients as $client)
-                        <flux:select.option :value="$client['id']">{{ $client['name'] }}</flux:select.option>
+                    <flux:select.option value="">Pilih Klien</flux:select.option>
+                    @foreach ($clients as $item)
+                        <flux:select.option :value="$item['id']">{{ $item['name'] }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>

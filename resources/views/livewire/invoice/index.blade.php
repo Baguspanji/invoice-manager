@@ -1,15 +1,20 @@
 <?php
 
+use App\Enums\InvoiceStatus;
+use App\Enums\ProjectStatus;
 use Livewire\Attributes\Computed;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Url;
 use App\Models\Invoice;
+use App\Models\Project;
 
 new class extends Component {
     use WithPagination;
 
     public ?Invoice $invoice = null;
+    public ?string $newStatus = null;
+    public array $availableStatusOptions = [];
 
     #[Url(as: 'q')]
     public ?string $search = '';
@@ -24,8 +29,8 @@ new class extends Component {
     {
         return [
             'requests' => Invoice::query()
-                ->with('client')
-                ->select(['id', 'invoice_number', 'client_id', 'total', 'status', 'issue_date', 'due_date'])
+                ->with(['client', 'project'])
+                ->select(['id', 'invoice_number', 'client_id', 'total', 'status', 'issue_date', 'due_date', 'project_id'])
                 ->when($this->search, function ($query) {
                     $query->where('invoice_number', 'like', '%' . $this->search . '%');
                 })
@@ -65,6 +70,70 @@ new class extends Component {
 
         $this->modal('print-preview')->show();
     }
+
+    /**
+     * Show status change modal
+     */
+    public function statusChange(int $id): void
+    {
+        $this->invoice = Invoice::find($id);
+        $this->availableStatusOptions = $this->getAvailableStatusOptions($this->invoice->status);
+        if (count($this->availableStatusOptions) > 0) {
+            $this->newStatus = $this->availableStatusOptions[0]['value'];
+        } else {
+            $this->newStatus = null;
+        }
+
+        $this->modal('status-change')->show();
+    }
+
+    /**
+     * Get available status options based on current status
+     */
+    private function getAvailableStatusOptions(InvoiceStatus $currentStatus): array
+    {
+        return match ($currentStatus) {
+            InvoiceStatus::DRAFT => [['value' => InvoiceStatus::SENT->value, 'label' => InvoiceStatus::SENT->label()]],
+            InvoiceStatus::SENT => [['value' => InvoiceStatus::PAID->value, 'label' => InvoiceStatus::PAID->label()], ['value' => InvoiceStatus::OVERDUE->value, 'label' => InvoiceStatus::OVERDUE->label()]],
+            InvoiceStatus::PAID, InvoiceStatus::OVERDUE => [],
+        };
+    }
+
+    /**
+     * Update invoice status
+     */
+    public function updateStatus(): void
+    {
+        if (!$this->invoice || !$this->newStatus) {
+            $this->dispatch('alert', type: 'error', message: 'Terjadi kesalahan saat mengubah status.');
+            return;
+        }
+
+        try {
+            if ($newStatus = InvoiceStatus::PAID->value && $this->invoice->project_id !== null) {
+                $project = Project::find($this->invoice->project_id);
+                $project->decrement('billed_value', $this->invoice?->subtotal ?? 0);
+
+                if ($project->billed_value <= 0) {
+                    $project->status = ProjectStatus::COMPLETED->value;
+                    $project->save();
+                }
+            }
+
+            $this->invoice->update([
+                'status' => $this->newStatus,
+            ]);
+
+            $this->dispatch('alert', type: 'success', message: 'Status invoice berhasil diubah.');
+            $this->modal('status-change')->close();
+
+            // Reset properties
+            $this->newStatus = null;
+            $this->availableStatusOptions = [];
+        } catch (\Exception $e) {
+            $this->dispatch('alert', type: 'error', message: 'Gagal mengubah status invoice: ' . $e->getMessage());
+        }
+    }
 }; ?>
 
 
@@ -98,6 +167,7 @@ new class extends Component {
                     <th scope="col" class="px-6 py-3">Nama Klien</th>
                     <th scope="col" class="px-6 py-3">Tanggal Terbit</th>
                     <th scope="col" class="px-6 py-3">Jatuh Tempo</th>
+                    <th scope="col" class="px-6 py-3">Proyek</th>
                     <th scope="col" class="px-6 py-3">Status</th>
                     <th scope="col" class="px-6 py-3">Total</th>
                     <th scope="col" class="px-6 py-3">Aksi</th>
@@ -108,9 +178,10 @@ new class extends Component {
                     <tr class="bg-white border-b hover:bg-gray-50">
                         <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap hover:font-semibold cursor-pointer"
                             wire:click="detail({{ $request->id }})">{{ $request->invoice_number }}</td>
-                        <td class="px-6 py-4">{{ $request->client?->name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->client?->name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->issue_date?->format('Y-m-d') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->project?->name ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 match ($request->status) {
@@ -127,7 +198,7 @@ new class extends Component {
                         <td class="px-6 py-4 whitespace-nowrap">
                             Rp {{ number_format($request->total, 2) }}
                         </td>
-                        <td class="px-6 py-4 space-x-2">
+                        <td class="px-6 py-4 space-x-2 flex flex-row">
                             <button wire:click="edit({{ $request->id }})"
                                 class="text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-100 cursor-pointer">
                                 <flux:icon name="pencil-square" class="w-4 h-4 inline-block -mt-1" />
@@ -138,11 +209,16 @@ new class extends Component {
                                 <flux:icon name="printer" class="w-4 h-4 inline-block -mt-1" />
                                 Print
                             </button>
+                            <button wire:click="statusChange({{ $request->id }})"
+                                class="text-xs text-gray-600 px-2 py-1 rounded hover:bg-gray-100 cursor-pointer">
+                                <flux:icon name="tag" class="w-4 h-4 inline-block -mt-1" />
+                                Status
+                            </button>
                         </td>
                     </tr>
                 @empty
                     <tr class="bg-white border-b">
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="8" class="px-6 py-4 text-center text-gray-500">
                             Tidak ada data invoice.
                         </td>
                     </tr>
@@ -164,18 +240,45 @@ new class extends Component {
 
             @if ($invoice)
                 <div class="space-y-2">
-                    <div><strong>Nomor Invoice:</strong> {{ $invoice->invoice_number }}</div>
-                    <div><strong>Klien:</strong> {{ $invoice->client?->name }}</div>
-                    <div><strong>Tanggal Terbit:</strong> {{ $invoice->issue_date?->format('Y-m-d') ?? '-' }}</div>
-                    <div><strong>Jatuh Tempo:</strong> {{ $invoice->due_date?->format('Y-m-d') ?? '-' }}</div>
-                    <div><strong>Status:</strong>
-                        <span
-                            class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $invoice->status->color() }}-400">
-                            {{ $invoice->status->label() ?? '-' }}
-                        </span>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500 mb-4">
+                            <tbody>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Nomor Invoice</th>
+                                    <td class="px-3 py-2">{{ $invoice->invoice_number }}</td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Klien</th>
+                                    <td class="px-3 py-2">{{ $invoice->client?->name }}</td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Tanggal Terbit</th>
+                                    <td class="px-3 py-2">{{ $invoice->issue_date?->format('Y-m-d') ?? '-' }}</td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Jatuh Tempo</th>
+                                    <td class="px-3 py-2">{{ $invoice->due_date?->format('Y-m-d') ?? '-' }}</td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Status</th>
+                                    <td class="px-3 py-2">
+                                        <span
+                                            class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $invoice->status->color() }}-400">
+                                            {{ $invoice->status->label() ?? '-' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Total</th>
+                                    <td class="px-3 py-2">Rp {{ number_format($invoice->total, 2) }}</td>
+                                </tr>
+                                <tr class="border-b">
+                                    <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700 w-1/3">Catatan</th>
+                                    <td class="px-3 py-2">{{ $invoice->notes ?? '-' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div><strong>Total:</strong> Rp {{ number_format($invoice->total, 2) }}</div>
-                    <div><strong>Catatan:</strong> {{ $invoice->notes ?? '-' }}</div>
 
                     <div>
                         <flux:heading size="md">Item Invoice</flux:heading>
@@ -250,4 +353,51 @@ new class extends Component {
             iframe.contentWindow.print();
         }
     </script>
+
+    <!-- Status Change Modal -->
+    <flux:modal name="status-change" class="md:w-md">
+        <div class="space-y-4">
+            <div>
+                <flux:heading size="lg">Ubah Status Invoice</flux:heading>
+                <p class="text-sm text-gray-600">
+                    Ubah status invoice dari
+                    @if ($invoice)
+                        <span class="font-semibold">{{ $invoice->status->label() }}</span>
+                    @endif
+                </p>
+            </div>
+
+            @if ($invoice)
+                <form wire:submit="updateStatus" class="space-y-4">
+                    <div>
+                        <flux:label for="new-status">Status Baru</flux:label>
+                        @if (count($availableStatusOptions) > 0)
+                            <flux:select size="sm" wire:model="newStatus">
+                                @foreach ($availableStatusOptions as $key => $option)
+                                    <option value="{{ $option['value'] }}"
+                                        @if ($key == 0) selected @endif>{{ $option['label'] }}
+                                    </option>
+                                @endforeach
+                            </flux:select>
+                        @else
+                            <div class="p-3 bg-gray-100 rounded border text-sm text-gray-700">
+                                Status invoice ini tidak dapat diubah lagi.
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="pt-2 flex justify-end space-x-2">
+                        @if (count($availableStatusOptions) > 0)
+                            <flux:button type="submit" variant="primary" size="sm" :disabled="!$newStatus"
+                                class="cursor-pointer">
+                                Simpan Perubahan
+                            </flux:button>
+                        @endif
+                    </div>
+                </form>
+            @else
+                <div class="text-gray-500">Memuat data...</div>
+            @endif
+        </div>
+    </flux:modal>
 </section>
