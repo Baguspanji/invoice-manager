@@ -1,9 +1,7 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
-use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class InvoiceController extends Controller
@@ -19,6 +17,13 @@ class InvoiceController extends Controller
         // Generate PDF with A4 paper size
         $pdf = PDF::loadView('pdf.invoice', ['invoice' => $invoice]);
         $pdf->setPaper('a4', 'portrait');
+        // $pdf->getDomPDF()->set_option('defaultFont', 'Poppins');
+        // $pdf->getDomPDF()->fontMetrics->registerFont([
+        //     'family' => 'Poppins',
+        //     'style' => 'normal',
+        //     'weight' => 'normal',
+        //     'file' => public_path('fonts/Poppins-Regular.ttf'),
+        // ]);
 
         // Return PDF for display in iframe
         return $pdf->stream("invoice-{$invoice->invoice_number}.pdf");
