@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Computed;
@@ -13,6 +14,14 @@ new class extends Component {
 
     #[Url(as: 'q')]
     public ?string $search = '';
+
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Proyek');
+    }
 
     /**
      * Take data from model to component
@@ -174,7 +183,8 @@ new class extends Component {
                                 <tr class="border-b">
                                     <th class="px-3 py-2 bg-gray-50 font-medium text-gray-700">Status</th>
                                     <td class="px-3 py-2">
-                                        <span class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $project->status->color() }}-400">
+                                        <span
+                                            class="px-2 py-1 rounded text-white text-xs font-mono bg-{{ $project->status->color() }}-400">
                                             {{ $project->status->label() ?? '-' }}
                                         </span>
                                     </td>

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\View\View;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Rule;
 use App\Models\Client;
@@ -10,6 +11,14 @@ use Illuminate\Support\Facades\DB;
 new class extends Component {
     // selected project
     public ?Project $project = null;
+
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Buat Invoice');
+    }
 
     // columns for invoice creation
     #[Rule('required|string|unique:invoices,invoice_number')]

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\View\View;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Rule;
 use App\Models\Client;
@@ -7,6 +8,14 @@ use App\Models\Project;
 use Illuminate\Support\Facades\DB;
 
 new class extends Component {
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Buat Proyek');
+    }
+
     // columns for project creation
     #[Rule('required|string|unique:projects,project_number')]
     public ?string $project_number = null;

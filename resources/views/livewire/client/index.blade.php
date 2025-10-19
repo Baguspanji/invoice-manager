@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 use Livewire\Attributes\Computed;
@@ -14,6 +15,14 @@ new class extends Component {
 
     #[Url(as: 'q')]
     public ?string $search = '';
+
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Klien');
+    }
 
     // columns with rules
     #[Rule('required|string|max:255', 'Nama harus diisi.')]

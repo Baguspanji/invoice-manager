@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\View\View;
 use App\Enums\InvoiceStatus;
 use App\Enums\ProjectStatus;
 use Livewire\Attributes\Computed;
@@ -20,6 +21,14 @@ new class extends Component {
     public ?string $search = '';
     #[Url(as: 'status')]
     public ?string $status = '';
+
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Invoice');
+    }
 
     /**
      * Take data from model to component
