@@ -27,6 +27,24 @@
             width: 100%;
         }
 
+        .payment-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 10px;
+            color: white;
+        }
+
+        .paid {
+            background-color: #28a745;
+        }
+
+        .unpaid {
+            background-color: #dc3545;
+        }
+
         .company-info {
             font-weight: bold;
             width: 60%;
@@ -37,7 +55,6 @@
             width: 40%;
             text-align: right;
             float: right;
-            color: #1E9DA6;
         }
 
         .invoice-title {
@@ -130,9 +147,20 @@
             text-align: center;
         }
 
+        .notes-section {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: normal;
+            color: red;
+            width: 60%;
+            float: left;
+        }
+
         .total-section {
             margin-top: 20px;
             text-align: right;
+            width: 40%;
+            float: right;
         }
 
         .subtotal-line {
@@ -158,10 +186,21 @@
             margin-top: 4px;
         }
 
+        .information-data {
+            clear: both;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
         .bank-details {
             margin-top: 30px;
             font-size: 22px;
             font-weight: bold;
+            width: 60%;
+            float: left;
+            margin-bottom: 70px;
         }
 
         .bank-account {
@@ -180,6 +219,19 @@
             font-weight: bold;
         }
 
+        .qr-code {
+            width: 40%;
+            float: right;
+            width: 200px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .qr-code img {
+            width: 180px;
+            height: 180px;
+        }
+
         .thank-you {
             margin-top: 30px;
             text-align: start;
@@ -191,15 +243,15 @@
         }
 
         .contact-details {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
+            text-align: center;
+            margin-top: 16px;
             font-size: 16px;
             font-weight: bold;
+            width: 100%;
         }
 
         .contact-item {
-            margin: 0 15px;
+            margin-right: 30px;
             display: inline-block;
             vertical-align: middle;
         }
@@ -225,7 +277,13 @@
         <div class="invoice-right">
             <h1 class="invoice-title">INVOICE</h1>
             <div class="invoice-date">
-                {{ $invoice->issue_date?->translatedFormat('d - F - Y') ?? now()->translatedFormat('d - F - Y') }}</div>
+                {{ $invoice->issue_date?->translatedFormat('d - F - Y') ?? now()->translatedFormat('d - F - Y') }}
+            </div>
+            @if ($useBadge)
+                <div class="payment-badge {{ $invoice->status == 'paid' ? 'paid' : 'unpaid' }}">
+                    {{ $invoice->status == 'paid' ? 'TERBAYAR' : 'BELUM TERBAYAR' }}
+                </div>
+            @endif
         </div>
     </div>
 
@@ -286,37 +344,52 @@
         </tbody>
     </table>
 
-    <div class="total-section">
-        <div class="subtotal-line">
-            <strong>Subtotal :</strong> {{ number_format($invoice->subtotal, 0, ',', '.') }}
+    <div class="information-data">
+        <div class="notes-section">
+            <span>Note : Test catatan</span>
         </div>
 
-        @if ($invoice->tax > 0)
+        <div class="total-section">
             <div class="subtotal-line">
-                <strong>PPN 11% :</strong> {{ number_format($invoice->tax, 0, ',', '.') }}
+                <strong>Subtotal :</strong> {{ number_format($invoice->subtotal, 0, ',', '.') }}
             </div>
-        @endif
 
-        @if ($invoice->down_payment > 0)
-            <div class="subtotal-line">
-                <strong>Dp :</strong> {{ number_format($invoice->discount, 0, ',', '.') }}
+            @if ($invoice->tax > 0)
+                <div class="subtotal-line">
+                    <strong>PPN 11% :</strong> {{ number_format($invoice->tax, 0, ',', '.') }}
+                </div>
+            @endif
+
+            @if ($invoice->down_payment > 0)
+                <div class="subtotal-line">
+                    <strong>Dp :</strong> {{ number_format($invoice->discount, 0, ',', '.') }}
+                </div>
+            @endif
+
+            <div style="display: inline-block;">
+                <div class="grand-total-line" style="font-size: 18px;">Grand Total</div>
+                <div class="grand-total">Rp.{{ number_format($invoice->total, 0, ',', '.') }}</div>
             </div>
-        @endif
-
-        <div style="display: inline-block;">
-            <div class="grand-total-line" style="font-size: 18px;">Grand Total</div>
-            <div class="grand-total">Rp.{{ number_format($invoice->total, 0, ',', '.') }}</div>
         </div>
     </div>
 
-    <div class="bank-details">
-        <div>No.Rekening</div>
-        <div class="bank-account">
-            <div>A/n Riziq Sofyan</div>
+
+    <div class="information-data">
+        <div class="bank-details">
+            <div>No.Rekening</div>
+            <div class="bank-account">
+                <div>A/n Riziq Sofyan</div>
+            </div>
+            <div class="bank-account-number">
+                <img src="{{ $logo_bca_base64 }}" alt="BCA" class="bank-logo">
+                <strong>8945191399</strong>
+            </div>
         </div>
-        <div class="bank-account-number">
-            <img src="{{ $logo_bca_base64 }}" alt="BCA" class="bank-logo">
-            <strong>8945191399</strong>
+
+        <div class="qr-code">
+            @if ($useQr)
+                <img src="{{ $qrcode }}" alt="QR Code">
+            @endif
         </div>
     </div>
 
@@ -326,15 +399,18 @@
 
     <div class="contact-details">
         <div class="contact-item">
-            <img src="{{ $logo_instagram_base64 }}" alt="Instagram" style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
+            <img src="{{ $logo_instagram_base64 }}" alt="Instagram"
+                style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
             @pas.desain
         </div>
         <div class="contact-item">
-            <img src="{{ $logo_whatsapp_base64 }}" alt="Instagram" style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
+            <img src="{{ $logo_whatsapp_base64 }}" alt="Instagram"
+                style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
             085745526763
         </div>
         <div class="contact-item">
-            <img src="{{ $logo_website_base64 }}" alt="Instagram" style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
+            <img src="{{ $logo_website_base64 }}" alt="Instagram"
+                style="margin-bottom: -9px; max-height: 30px; color: #1E9DA6;" />
             osidesain.com
         </div>
     </div>

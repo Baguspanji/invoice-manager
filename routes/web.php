@@ -30,7 +30,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Invoice PDF
     Route::get('invoice/{invoice}/pdf', [App\Http\Controllers\InvoiceController::class, 'generatePdf'])->name('invoice.pdf');
-    Route::get('invoice/{invoice}/download', [App\Http\Controllers\InvoiceController::class, 'downloadPdf'])->name('invoice.download');
+    Route::get('invoice/{invoice}/download', [App\Http\Controllers\InvoiceController::class, 'downloadPdf'])->name('invoice.download'); // Add this route to your existing routes
 });
 
-require __DIR__.'/auth.php';
+Route::get('/invoice/public/{hash}', [App\Http\Controllers\InvoiceController::class, 'publicAccess'])->name('invoice.public');
+
+require __DIR__ . '/auth.php';
