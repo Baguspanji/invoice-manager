@@ -11,7 +11,8 @@
 
         <a href="{{ route('dashboard') }}" class="ms-2 me-5 flex items-center space-x-2 rtl:space-x-reverse lg:ms-0"
             wire:navigate>
-            <x-app-logo />
+            {{-- <x-app-logo /> --}}
+            <img src="{{ asset('images/logo-side.png') }}" alt="Logo Invoice Manager" class="h-14 py-2">
         </a>
 
         <flux:spacer />

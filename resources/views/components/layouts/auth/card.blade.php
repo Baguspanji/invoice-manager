@@ -13,7 +13,8 @@
                     <div class="px-10 py-6">
                         <a href="{{ route('home') }}" class="flex flex-col items-center gap-1 font-medium mb-4"
                             wire:navigate>
-                            <x-app-logo />
+                            {{-- <x-app-logo /> --}}
+                            <img src="{{ asset('images/logo-app.png') }}" alt="Logo Invoice Manager" class="h-24 w-24">
                         </a>
 
                         {{ $slot }}
