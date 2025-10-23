@@ -19,6 +19,8 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->decimal('total_value', 15, 2);
             $table->decimal('billed_value', 15, 2)->default(0);
+            $table->decimal('tax', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
             $table->date('start_date')->nullable();
             $table->date('due_date')->nullable();
             $table->string('status')->default('pending');

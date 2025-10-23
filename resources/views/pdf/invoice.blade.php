@@ -280,8 +280,8 @@
                 {{ $invoice->issue_date?->translatedFormat('d - F - Y') ?? now()->translatedFormat('d - F - Y') }}
             </div>
             @if ($useBadge)
-                <div class="payment-badge {{ $invoice->status == 'paid' ? 'paid' : 'unpaid' }}">
-                    {{ $invoice->status == 'paid' ? 'TERBAYAR' : 'BELUM TERBAYAR' }}
+                <div class="payment-badge {{ $invoice->status == \App\Enums\InvoiceStatus::PAID ? 'paid' : 'unpaid' }}">
+                    {{ $invoice->status == \App\Enums\InvoiceStatus::PAID ? 'TERBAYAR' : 'BELUM TERBAYAR' }}
                 </div>
             @endif
         </div>
@@ -346,7 +346,9 @@
 
     <div class="information-data">
         <div class="notes-section">
-            <span>Note : Test catatan</span>
+            @if ($invoice->notes)
+                <span>Note : {{ $invoice->notes }}</span>
+            @endif
         </div>
 
         <div class="total-section">

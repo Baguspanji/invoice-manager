@@ -37,6 +37,9 @@ new class extends Component {
 
     public array $clients = [];
 
+    public ?float $projectTax;
+    public bool $projectTaxEnable = false;
+
     /**
      * Mount project number on component load
      */
@@ -95,11 +98,15 @@ new class extends Component {
         $this->total_value = 0;
 
         foreach ($this->projectItems as $item) {
-            $this->total_value += $item['quantity'] * $item['unit_price'];
+            $itemQuantity = $item['quantity'];
+            $itemUnitPrice = $item['unit_price'] != '' ? $item['unit_price'] : 0;
+            $this->total_value += $itemQuantity * $itemUnitPrice;
         }
 
         // Format to 2 decimal places
         $this->total_value = round($this->total_value, 2);
+
+        $this->projectTaxEnable = false;
     }
 
     /**
@@ -108,6 +115,20 @@ new class extends Component {
     public function updatedProjectItems(): void
     {
         $this->calculateTotal();
+    }
+
+    /**
+     * Update projectTaxEnable for calculate projectTax
+     */
+    public function updatedProjectTaxEnable()
+    {
+        if ($this->projectTaxEnable) {
+            $this->calculateTotal();
+
+            $this->projectTax = $this->total_value * 0.11;
+        } else {
+            $this->projectTax = null;
+        }
     }
 
     /**
@@ -121,11 +142,13 @@ new class extends Component {
             $project = Project::create([
                 'client_id' => $this->client_id,
                 'project_number' => $this->project_number,
-                'name' =>$this->name,
+                'name' => $this->name,
                 'start_date' => $this->start_date,
                 'due_date' => $this->due_date,
                 'total_value' => $this->total_value,
-                'billed_value' => $this->total_value,
+                'billed_value' => $this->total_value + ($this->projectTax ?? 0),
+                'tax' => $this->projectTax ?? 0,
+                // 'discount' => null,
                 'description' => $this->description,
             ]);
 
@@ -197,7 +220,24 @@ new class extends Component {
             </div>
 
             <div>
-                <flux:input size="sm" label="Total" type="number" step="0.01" wire:model.defer="total_value" readonly />
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Total</label>
+                    <input type="text" value="Rp {{ number_format($total_value, 2) }}" readonly
+                        class="w-full px-3 py-1 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="flex flex-row-reverse gap-2 pt-7 items-center">
+                <flux:field variant="inline" class="max-w-32 mx-2">
+                    <flux:switch wire:model.live="projectTaxEnable" label="PPN 11%" align="left" />
+                    <flux:error name="projectTaxEnable" />
+                </flux:field>
+
+                @if ($projectTaxEnable)
+                    <div>
+                        Rp {{ number_format($projectTax, 2) }}
+                    </div>
+                @endif
             </div>
 
             <div class="md:col-span-2">

@@ -32,7 +32,7 @@ new class extends Component {
         return [
             'requests' => Project::query()
                 ->with('client')
-                ->select(['id', 'project_number', 'client_id', 'name', 'total_value', 'billed_value', 'start_date', 'due_date', 'status'])
+                ->select(['id', 'project_number', 'client_id', 'name', 'total_value', 'billed_value', 'tax', 'start_date', 'due_date', 'status'])
                 ->when($this->search, function ($query) {
                     $query->where('project_number', 'like', '%' . $this->search . '%')->orWhere('name', 'like', '%' . $this->search . '%');
                 })
@@ -93,6 +93,7 @@ new class extends Component {
                     <th scope="col" class="px-6 py-3">Tanggal Berahir</th>
                     <th scope="col" class="px-6 py-3">Status</th>
                     <th scope="col" class="px-6 py-3">Total Nilai</th>
+                    <th scope="col" class="px-6 py-3">PPN(11%)</th>
                     <th scope="col" class="px-6 py-3">Total Tagihan</th>
                     <th scope="col" class="px-6 py-3">Aksi</th>
                 </tr>
@@ -121,6 +122,9 @@ new class extends Component {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             Rp {{ number_format($request->total_value, 2) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {{ $request->tax ? 'Rp ' . number_format($request->tax, 2) : '-' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             Rp {{ number_format($request->billed_value, 2) }}

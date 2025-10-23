@@ -13,6 +13,8 @@ class Project extends Model
         'description',
         'total_value',
         'billed_value',
+        'tax',
+        'discount',
         'start_date',
         'due_date',
         'status',
