@@ -119,7 +119,7 @@ new class extends Component {
         }
 
         try {
-            if ($newStatus = InvoiceStatus::PAID->value && $this->invoice->project_id !== null) {
+            if ($this->newStatus == InvoiceStatus::PAID->value && $this->invoice->project_id !== null) {
                 $project = Project::find($this->invoice->project_id);
                 $project->decrement('billed_value', $this->invoice?->subtotal ?? 0);
 
