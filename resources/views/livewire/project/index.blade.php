@@ -31,8 +31,14 @@ new class extends Component {
     {
         return [
             'requests' => Project::query()
-                ->with('client')
+                ->with([
+                    'client',
+                    'invoices' => function ($query) {
+                        $query->select('project_id');
+                    },
+                ])
                 ->select(['id', 'project_number', 'client_id', 'name', 'total_value', 'billed_value', 'tax', 'start_date', 'due_date', 'status'])
+                ->where('deleted_at', null)
                 ->when($this->search, function ($query) {
                     $query->where('project_number', 'like', '%' . $this->search . '%')->orWhere('name', 'like', '%' . $this->search . '%');
                 })
@@ -49,6 +55,22 @@ new class extends Component {
         $this->project = Project::with('client', 'items')->find($id);
 
         $this->modal('detail-data')->show();
+    }
+
+    /**
+     * Soft Delete project
+     */
+    public function delete(int $id): void
+    {
+        try {
+            $project = Project::findOrFail($id);
+            $project->deleted_at = now();
+            $project->save();
+
+            $this->dispatch('alert', type: 'success', message: 'Proyek berhasil dihapus.');
+        } catch (\Exception $e) {
+            $this->dispatch('alert', type: 'error', message: 'Gagal menghapus proyek: ' . $e->getMessage());
+        }
     }
 }; ?>
 
@@ -90,17 +112,20 @@ new class extends Component {
             <tbody>
                 @forelse ($requests as $request)
                     <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap cursor-pointer"
-                            wire:click="detail({{ $request->id }})">
+                        <td class="px-6 py-4 whitespace-nowrap cursor-pointer" wire:click="detail({{ $request->id }})">
                             <span class="text-xs hover:underline hover:font-semibold">
                                 #{{ $request->project_number }}
                             </span>
-                            <h4>
-                                <span class=font-semibold text-gray-500">{{ $request->name }}</span>
-                            </h4>
+                                <h4 class=font-semibold text-gray-500">{{ $request->name }}</h4>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->client?->name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->start_date?->format('Y-m-d') ?? '-' }} - {{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <h4 class=font-semibold text-gray-500">{{ $request->client?->name }}</h4>
+                            <span>
+                                Total Invoice: {{ count($request->invoices) }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->start_date?->format('Y-m-d') ?? '-' }} -
+                            {{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 match ($request->status) {
@@ -123,12 +148,20 @@ new class extends Component {
                         <td class="px-6 py-4 whitespace-nowrap">
                             Rp {{ number_format($request->billed_value, 2) }}
                         </td>
-                        <td class="px-6 py-4 space-x-2">
+                        <td class="px-6 py-4  space-x-2 flex flex-row">
                             <a href="{{ route('project.edit', ['project' => $request->id]) }}"
                                 class="text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-100 cursor-pointer">
                                 <flux:icon name="pencil-square" class="w-4 h-4 inline-block -mt-1" />
                                 Edit
                             </a>
+                            @if ($request->status == \App\Enums\ProjectStatus::PENDING && count($request->invoices) == 0)
+                                <button wire:click="delete({{ $request->id }})"
+                                    wire:confirm='Apakah Anda yakin ingin menghapus proyek ini?'
+                                    class="text-xs text-red-600 px-2 py-1 rounded hover:bg-red-100 cursor-pointer">
+                                    <flux:icon name="trash" class="w-4 h-4 inline-block -mt-1" />
+                                    Hapus
+                                </button>
+                            @endif
                         </td>
                     </tr>
                 @empty

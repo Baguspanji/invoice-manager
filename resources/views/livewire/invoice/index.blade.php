@@ -40,6 +40,7 @@ new class extends Component {
             'requests' => Invoice::query()
                 ->with(['client', 'project'])
                 ->select(['id', 'invoice_number', 'client_id', 'total', 'status', 'issue_date', 'due_date', 'project_id'])
+                ->where('deleted_at', null)
                 ->when($this->search, function ($query) {
                     $query->where('invoice_number', 'like', '%' . $this->search . '%');
                 })
@@ -134,6 +135,22 @@ new class extends Component {
             $this->dispatch('alert', type: 'error', message: 'Gagal mengubah status invoice: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Soft Delete invoice
+     */
+    public function delete(int $id): void
+    {
+        try {
+            $invoice = Invoice::findOrFail($id);
+            $invoice->deleted_at = now();
+            $invoice->save();
+
+            $this->dispatch('alert', type: 'success', message: 'Invoice berhasil dihapus.');
+        } catch (\Exception $e) {
+            $this->dispatch('alert', type: 'error', message: 'Gagal menghapus invoice: ' . $e->getMessage());
+        }
+    }
 }; ?>
 
 
@@ -174,8 +191,7 @@ new class extends Component {
             <tbody>
                 @forelse ($requests as $request)
                     <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap cursor-pointer"
-                            wire:click="detail({{ $request->id }})">
+                        <td class="px-6 py-4 whitespace-nowrap cursor-pointer" wire:click="detail({{ $request->id }})">
                             <span class="text-xs hover:underline hover:font-semibold">
                                 #{{ $request->invoice_number }}
                             </span>
@@ -183,7 +199,8 @@ new class extends Component {
                                 <span class=font-semibold text-gray-500">{{ $request->client?->name }}</span>
                             </h4>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->issue_date?->format('Y-m-d') ?? '-' }} - {{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->issue_date?->format('Y-m-d') ?? '-' }} -
+                            {{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->project?->name ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
@@ -217,6 +234,14 @@ new class extends Component {
                                 <flux:icon name="tag" class="w-4 h-4 inline-block -mt-1" />
                                 Status
                             </button>
+                            @if ($request->status == \App\Enums\InvoiceStatus::DRAFT)
+                                <button
+                                    wire:click="delete({{ $request->id }})" wire:confirm='Apakah Anda yakin ingin menghapus invoice ini?'
+                                    class="text-xs text-red-600 px-2 py-1 rounded hover:bg-red-100 cursor-pointer">
+                                    <flux:icon name="trash" class="w-4 h-4 inline-block -mt-1" />
+                                    Hapus
+                                </button>
+                            @endif
                         </td>
                     </tr>
                 @empty

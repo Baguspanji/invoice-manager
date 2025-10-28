@@ -46,6 +46,11 @@ class Project extends Model
         return $this->belongsTo(Client::class);
     }
 
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function generateProjectNumber(): string
     {
         $latestProject = self::latest()->first();
