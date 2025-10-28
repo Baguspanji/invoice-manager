@@ -1,0 +1,404 @@
+<?php
+
+use Illuminate\View\View;
+use Livewire\Volt\Component;
+use Livewire\Attributes\Rule;
+use App\Models\Client;
+use App\Models\Invoice;
+use App\Models\Project;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+
+new class extends Component {
+    public Invoice $invoice;
+
+    // selected project
+    public ?Project $project = null;
+
+    /**
+     * Set page title
+     */
+    public function rendering(View $view): void
+    {
+        $view->title('Edit Invoice');
+    }
+
+    // columns for invoice editing
+    #[Rule('required|string')]
+    public ?string $invoice_number = null;
+    #[Rule('nullable|integer|exists:projects,id')]
+    public ?int $project_id = null;
+    #[Rule('required|integer|exists:clients,id')]
+    public ?int $client_id = null;
+    #[Rule('required|date')]
+    public ?string $issue_date = null;
+    #[Rule('required|date')]
+    public ?string $due_date = null;
+    #[Rule('required|numeric|min:0')]
+    public ?float $total = null;
+    #[Rule('nullable|string|min:0')]
+    public ?string $notes = null;
+
+    #[Rule('array')]
+    public array $invoiceItems = [];
+
+    public array $clients = [];
+
+    public array $projects = [];
+
+    public ?float $projectTax;
+    public bool $projectTaxEnable = false;
+
+    /**
+     * Mount invoice data on component load
+     */
+    public function mount(Invoice $invoice): void
+    {
+        $this->invoice = $invoice->load('items', 'project');
+        $this->invoice_number = $invoice->invoice_number;
+        $this->project_id = $invoice->project_id;
+        $this->client_id = $invoice->client_id;
+        $this->issue_date = Carbon::parse($invoice->issue_date)->format('Y-m-d');
+        $this->due_date = Carbon::parse($invoice->due_date)->format('Y-m-d');
+        $this->total = $invoice->subtotal;
+        $this->notes = $invoice->notes;
+
+        $this->clients = Client::select(['id', 'name'])
+            ->get()
+            ->toArray();
+        $this->projects = Project::select(['id', 'name'])
+            ->get()
+            ->toArray();
+
+        // Load project if exists
+        if ($this->project_id) {
+            $this->project = Project::find($this->project_id);
+        }
+
+        // Load existing invoice items
+        if ($invoice->items->count() > 0) {
+            foreach ($invoice->items as $item) {
+                $this->invoiceItems[] = [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'description' => $item->description,
+                ];
+            }
+        } else {
+            // Initialize with one empty invoice item if none exist
+            $this->invoiceItems[] = [
+                'item_name' => '',
+                'quantity' => 1,
+                'unit_price' => 0.0,
+                'description' => '',
+            ];
+        }
+
+        // Check if tax was applied
+        if ($invoice->tax > 0) {
+            $this->projectTaxEnable = true;
+            $this->projectTax = $invoice->tax;
+        }
+
+        $this->calculateTotal();
+    }
+
+    /**
+     * Update client_id when project_id changes
+     */
+    public function updatedProjectId(): void
+    {
+        if ($this->project_id) {
+            $project = Project::find($this->project_id);
+            if ($project) {
+                $this->project = $project;
+                $this->client_id = $project->client_id;
+            }
+        } else {
+            $this->project = null;
+            $this->client_id = null;
+        }
+
+        $this->projectTaxEnable = false;
+    }
+
+    /**
+     * Add new item to invoiceItems
+     */
+    public function addItem(): void
+    {
+        $this->invoiceItems[] = [
+            'item_name' => '',
+            'description' => '',
+            'quantity' => 1,
+            'unit_price' => 0.0,
+        ];
+
+        $this->calculateTotal();
+    }
+
+    /**
+     * Remove item from invoiceItems
+     */
+    public function removeItem(int $index): void
+    {
+        unset($this->invoiceItems[$index]);
+        $this->invoiceItems = array_values($this->invoiceItems);
+
+        $this->calculateTotal();
+    }
+
+    /**
+     * Calculate total based on all items
+     */
+    public function calculateTotal(): void
+    {
+        $this->total = 0;
+
+        foreach ($this->invoiceItems as $item) {
+            $itemQuantity = $item['quantity'];
+            $itemUnitPrice = $item['unit_price'] != '' ? $item['unit_price'] : 0;
+            $this->total += $itemQuantity * $itemUnitPrice;
+        }
+
+        // Format to 2 decimal places
+        $this->total = round($this->total, 2);
+    }
+
+    /**
+     * Update calculations when an item changes
+     */
+    public function updatedInvoiceItems(): void
+    {
+        $this->calculateTotal();
+    }
+
+    /**
+     * Update projectTaxEnable for calculate projectTax
+     */
+    public function updatedProjectTaxEnable()
+    {
+        if ($this->projectTaxEnable) {
+            if ($this->project) {
+                $this->projectTax = $this->project->tax;
+            } else {
+                $this->projectTax = $this->total * 0.11;
+            }
+        } else {
+            $this->projectTax = null;
+        }
+    }
+
+    /**
+     * Update form data
+     */
+    public function submit(): void
+    {
+        $this->validate();
+
+        DB::transaction(function () {
+            $this->invoice->update([
+                'invoice_number' => $this->invoice_number,
+                'project_id' => $this->project_id,
+                'client_id' => $this->client_id,
+                'issue_date' => $this->issue_date,
+                'due_date' => $this->due_date,
+                'subtotal' => $this->total,
+                'total' => $this->total + ($this->projectTax ?? 0),
+                'tax' => $this->projectTax ?? 0,
+                'notes' => $this->notes,
+            ]);
+
+            // Delete existing items and recreate
+            $this->invoice->items()->delete();
+
+            // Create updated items
+            foreach ($this->invoiceItems as $item) {
+                $item['total_price'] = $item['quantity'] * $item['unit_price'];
+                unset($item['id']); // Remove id if exists
+
+                $this->invoice->items()->create($item);
+            }
+        });
+
+        session()->flash('alert-message', [
+            'message' => 'Invoice berhasil diperbarui.',
+            'type' => 'success',
+        ]);
+
+        $this->redirect(route('invoice.index'));
+    }
+}; ?>
+
+<section>
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-2xl font-bold">Edit Invoice</h2>
+            <p class="text-sm text-gray-600">
+                Perbarui informasi invoice Anda di sini.
+            </p>
+        </div>
+        <a class="text-sm px-2 py-1.5 bg-transparent text-gray-700 border border-gray-400 rounded hover:bg-gray-100 cursor-pointer"
+            href="{{ route('invoice.index') }}">
+            <flux:icon name="arrow-left" class="w-4 h-4 inline-block -mt-1" />
+            Daftar Invoice
+        </a>
+    </div>
+
+    <!-- Form -->
+    <form wire:submit.prevent="submit" class="space-y-6 bg-white p-6 rounded shadow">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div class="col-span-2">
+                <div class="text-2xl font-semibold text-gray-700 mb-2">Invoice</div>
+
+                <div class="w-full border-b-1 border-gray-200 mb-2"></div>
+            </div>
+
+            <div>
+                <flux:input size="sm" label="Nomor Invoice" type="text" wire:model.defer="invoice_number"
+                    readonly />
+            </div>
+
+            <div>
+                <flux:select size="sm" label="Proyek" wire:model.live="project_id">
+                    <flux:select.option value="">Pilih Proyek</flux:select.option>
+                    @foreach ($projects as $item)
+                        <flux:select.option :value="$item['id']">{{ $item['name'] }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div>
+                <flux:select size="sm" label="Klien" wire:model.defer="client_id"
+                    :disabled="$project_id !== null">
+                    <flux:select.option value="">Pilih Klien</flux:select.option>
+                    @foreach ($clients as $item)
+                        <flux:select.option :value="$item['id']">{{ $item['name'] }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            <div></div>
+
+            <div>
+                <flux:input size="sm" label="Tanggal Terbit" type="date" wire:model.defer="issue_date" />
+            </div>
+
+            <div>
+                <flux:input size="sm" label="Jatuh Tempo" type="date" wire:model.defer="due_date" />
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Total</label>
+                <input type="text" value="Rp {{ number_format($total, 2) }}" readonly
+                    class="w-full px-3 py-1 text-sm border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div class="flex flex-row-reverse gap-2 pt-7 items-center">
+                <flux:field variant="inline" class="max-w-32 mx-2">
+                    <flux:switch wire:model.live="projectTaxEnable" label="PPN 11%" align="left" />
+                    <flux:error name="projectTaxEnable" />
+                </flux:field>
+
+                @if ($projectTaxEnable)
+                    <div>
+                        Rp {{ number_format($projectTax, 2) }}
+                    </div>
+                @endif
+            </div>
+
+            <div class="md:col-span-2">
+                <flux:textarea size="sm" label="Catatan" wire:model.defer="notes" rows="2" />
+            </div>
+
+            <!-- Project Overview -->
+            @if ($project)
+                <div class="md:col-span-2 bg-gray-50 p-4 rounded-md my-4">
+                    <h3 class="font-semibold text-gray-700 mb-3">Detail Proyek</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-sm text-gray-500">Nomor Proyek</p>
+                            <p class="font-medium">{{ $project->project_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Nama Proyek</p>
+                            <p class="font-medium">{{ $project->name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Total Nilai</p>
+                            <p class="font-medium">Rp {{ number_format($project->total_value, 2) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Total Tagihan</p>
+                            <p class="font-medium">Rp {{ number_format($project->billed_value, 2) }}</p>
+                        </div>
+                    </div>
+
+                    @if ($projectTaxEnable && $project)
+                        <span class="text-sm text-red-400 mt-2">Pembayaran akan menggunakan PPN(11%) dari project
+                            senilai : Rp {{ number_format($projectTax, 2) }}</span>
+                    @endif
+                </div>
+            @endif
+
+            @if ($projectTaxEnable && !$project)
+                <span class="text-sm text-red-400 mt-2">Pembayaran akan menggunakan PPN(11%) senilai : Rp
+                    {{ number_format($projectTax, 2) }}</span>
+            @endif
+
+            <div class="md:col-span-2 pt-4">
+                <div class="flex justify-between">
+                    <div class="text-2xl font-semibold text-gray-700 mb-2">Item Invoice</div>
+                    <button type="button" wire:click.prevent="addItem"
+                        class="text-sm text-green-600 px-2 py-1 rounded hover:bg-green-100 cursor-pointer ml-auto">
+                        Tambah Item
+                    </button>
+                </div>
+
+                <div class="w-full border-b-1 border-gray-200 mb-2"></div>
+
+                <div class="space-y-4">
+                    @foreach ($invoiceItems as $index => $item)
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+                            <div class="col-span-3">
+                                <flux:input size="sm" label="Item" type="text"
+                                    wire:model.defer="invoiceItems.{{ $index }}.item_name" />
+                            </div>
+                            <div>
+                                <flux:input size="sm" label="Kuantitas" type="number" step="1"
+                                    wire:model.live="invoiceItems.{{ $index }}.quantity" />
+                            </div>
+                            <div>
+                                <flux:input size="sm" label="Harga Satuan" type="number" step="0.01"
+                                    wire:model.live="invoiceItems.{{ $index }}.unit_price" />
+                            </div>
+                            <div>
+                                <button type="button" wire:click.prevent="removeItem({{ $index }})"
+                                    class="text-sm text-red-600 px-2 py-1 rounded hover:bg-red-100 cursor-pointer">
+                                    Hapus
+                                </button>
+                            </div>
+                            <div class="col-span-5">
+                                <flux:textarea size="sm" label="Deskripsi" type="text"
+                                    wire:model.defer="invoiceItems.{{ $index }}.description" rows="2" />
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end space-x-4">
+            <a href="{{ route('invoice.index') }}"
+                class="text-sm px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 cursor-pointer">
+                Batal
+            </a>
+            <button type="submit"
+                class="text-sm px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer">
+                Perbarui Invoice
+            </button>
+        </div>
+    </form>
+</section>

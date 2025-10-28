@@ -42,15 +42,6 @@ new class extends Component {
     }
 
     /**
-     * Redirect to edit page
-     */
-    public function edit(int $id): void
-    {
-        $this->dispatch('alert', type: 'warning', message: 'Fitur akan segera hadir.');
-        // $this->redirect(route('invoice.edit', ['invoice' => $id]));
-    }
-
-    /**
      * Show detail modal
      */
     public function detail(int $id): void
@@ -86,11 +77,9 @@ new class extends Component {
         <table class="w-full text-sm text-left text-gray-500">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                    <th scope="col" class="px-6 py-3">No Proyek</th>
+                    <th scope="col" class="px-6 py-3">Proyek</th>
                     <th scope="col" class="px-6 py-3">Nama Klien</th>
-                    <th scope="col" class="px-6 py-3">Nama Proyek</th>
-                    <th scope="col" class="px-6 py-3">Tanggal Mulai</th>
-                    <th scope="col" class="px-6 py-3">Tanggal Berahir</th>
+                    <th scope="col" class="px-6 py-3">Periode</th>
                     <th scope="col" class="px-6 py-3">Status</th>
                     <th scope="col" class="px-6 py-3">Total Nilai</th>
                     <th scope="col" class="px-6 py-3">PPN(11%)</th>
@@ -101,12 +90,17 @@ new class extends Component {
             <tbody>
                 @forelse ($requests as $request)
                     <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap hover:font-semibold cursor-pointer"
-                            wire:click="detail({{ $request->id }})">{{ $request->project_number }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap cursor-pointer"
+                            wire:click="detail({{ $request->id }})">
+                            <span class="text-xs hover:underline hover:font-semibold">
+                                #{{ $request->project_number }}
+                            </span>
+                            <h4>
+                                <span class=font-semibold text-gray-500">{{ $request->name }}</span>
+                            </h4>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->client?->name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->start_date?->format('Y-m-d') ?? '-' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->start_date?->format('Y-m-d') ?? '-' }} - {{ $request->due_date?->format('Y-m-d') ?? '-' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 match ($request->status) {
@@ -130,11 +124,11 @@ new class extends Component {
                             Rp {{ number_format($request->billed_value, 2) }}
                         </td>
                         <td class="px-6 py-4 space-x-2">
-                            <button wire:click="edit({{ $request->id }})"
+                            <a href="{{ route('project.edit', ['project' => $request->id]) }}"
                                 class="text-xs text-yellow-600 px-2 py-1 rounded hover:bg-yellow-100 cursor-pointer">
                                 <flux:icon name="pencil-square" class="w-4 h-4 inline-block -mt-1" />
                                 Edit
-                            </button>
+                            </a>
                         </td>
                     </tr>
                 @empty

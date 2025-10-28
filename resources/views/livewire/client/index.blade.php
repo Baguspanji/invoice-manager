@@ -188,7 +188,7 @@ new class extends Component {
                             wire:click="edit({{ $request->id }})">{{ $request->name }}</td>
                         <td class="px-6 py-4">{{ $request->email }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">{{ $request->phone ?? '-' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">{{ $request->address ?? '-' }}</td>
+                        <td class="px-6 py-4">{{ $request->address ?? '-' }}</td>
                         <td class="px-6 py-4">{{ $request->npwp ?? '-' }}</td>
                         <td class="px-6 py-4 space-x-2">
                             <button wire:click="edit({{ $request->id }})"
